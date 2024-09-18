@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 
 module Prosopite
   DEFAULT_ALLOW_LIST = [
