@@ -2,11 +2,12 @@
 
 module Prosopite
   DEFAULT_ALLOW_LIST = [
-    /active_record\/relation.rb.*preload_associations/,
-    'active_record/validations/uniqueness'
+    %r{active_record/relation.rb.*preload_associations},
+    "active_record/validations/uniqueness"
   ].freeze
 
-  class NPlusOneQueriesError < StandardError; end
+  class NPlusOneQueriesError < StandardError
+  end
   class << self
     attr_writer :raise,
                 :stderr_logger,
@@ -17,9 +18,7 @@ module Prosopite
                 :backtrace_cleaner,
                 :enabled
 
-    attr_accessor :allow_stack_paths,
-                  :ignore_queries,
-                  :min_n_queries
+    attr_accessor :allow_stack_paths, :ignore_queries, :min_n_queries
 
     def allow_list=(value)
       puts "Prosopite.allow_list= is deprecated. Use Prosopite.allow_stack_paths= instead."
@@ -43,9 +42,7 @@ module Prosopite
 
     def scan
       tc[:prosopite_scan] ||= false
-      if scan? || disabled?
-        return block_given? ? yield : nil
-      end
+      return block_given? ? yield : nil if scan? || disabled?
 
       subscribe
 
@@ -59,14 +56,14 @@ module Prosopite
 
       tc[:prosopite_scan] = true
 
-      if block_given?
-        begin
-          block_result = yield
-          finish
-          block_result
-        ensure
-          tc[:prosopite_scan] = false
-        end
+      return unless block_given?
+
+      begin
+        block_result = yield
+        finish
+        block_result
+      ensure
+        tc[:prosopite_scan] = false
       end
     end
 
@@ -75,9 +72,7 @@ module Prosopite
     end
 
     def pause
-      if @ignore_pauses
-        return block_given? ? yield : nil
-      end
+      return block_given? ? yield : nil if @ignore_pauses
 
       if block_given?
         begin
@@ -97,8 +92,10 @@ module Prosopite
     end
 
     def scan?
-      !!(tc[:prosopite_scan] && tc[:prosopite_query_counter] &&
-         tc[:prosopite_query_holder] && tc[:prosopite_query_caller])
+      !!(
+        tc[:prosopite_scan] && tc[:prosopite_query_counter] &&
+          tc[:prosopite_query_holder] && tc[:prosopite_query_caller]
+      )
     end
 
     def finish
@@ -118,29 +115,28 @@ module Prosopite
       tc[:prosopite_notifications] = {}
 
       tc[:prosopite_query_counter].each do |location_key, count|
-        if count >= @min_n_queries
-          fingerprints = tc[:prosopite_query_holder][location_key].group_by do |q|
+        next unless count >= @min_n_queries
+
+        fingerprints =
+          tc[:prosopite_query_holder][location_key].group_by do |q|
             begin
               fingerprint(q)
-            rescue
+            rescue StandardError
               raise q
             end
           end
 
-          queries = fingerprints.values.select { |q| q.size >= @min_n_queries }
+        queries = fingerprints.values.select { |q| q.size >= @min_n_queries }
 
-          next unless queries.any?
+        next unless queries.any?
 
-          kaller = tc[:prosopite_query_caller][location_key]
-          allow_list = (@allow_stack_paths + DEFAULT_ALLOW_LIST)
-          is_allowed = kaller.any? { |f| allow_list.any? { |s| f.match?(s) } }
+        kaller = tc[:prosopite_query_caller][location_key]
+        allow_list = (@allow_stack_paths + DEFAULT_ALLOW_LIST)
+        is_allowed = kaller.any? { |f| allow_list.any? { |s| f.match?(s) } }
 
-          unless is_allowed
-            queries.each do |q|
-              tc[:prosopite_notifications][q] = kaller
-            end
-          end
-        end
+        queries.each do |q|
+          tc[:prosopite_notifications][q] = kaller
+        end unless is_allowed
       end
     end
 
@@ -150,9 +146,10 @@ module Prosopite
         mysql_fingerprint(query)
       else
         begin
-          require 'pg_query'
+          require "pg_query"
         rescue LoadError => e
-          msg = "Could not load the 'pg_query' gem. Add `gem 'pg_query'` to your Gemfile"
+          msg =
+            "Could not load the 'pg_query' gem. Add `gem 'pg_query'` to your Gemfile"
           raise LoadError, msg, e.backtrace
         end
         PgQuery.fingerprint(query)
@@ -163,17 +160,23 @@ module Prosopite
     def mysql_fingerprint(query)
       query = query.dup
 
-      return "mysqldump" if query =~ %r#\ASELECT /\*!40001 SQL_NO_CACHE \*/ \* FROM `#
-      return "percona-toolkit" if query =~ %r#\*\w+\.\w+:[0-9]/[0-9]\*/#
-      if match = /\A\s*(call\s+\S+)\(/i.match(query)
+      return "mysqldump" if %r{\ASELECT /\*!40001 SQL_NO_CACHE \*/ \* FROM `}.match?(query)
+
+      return "percona-toolkit" if %r{\*\w+\.\w+:[0-9]/[0-9]\*/}.match?(query)
+      if (match = /\A\s*(call\s+\S+)\(/i.match(query))
         return match.captures.first.downcase!
       end
 
-      if match = /\A((?:INSERT|REPLACE)(?: IGNORE)?\s+INTO.+?VALUES\s*\(.*?\))\s*,\s*\(/im.match(query)
+      if (
+           match =
+             /\A((?:INSERT|REPLACE)(?: IGNORE)?\s+INTO.+?VALUES\s*\(.*?\))\s*,\s*\(/im.match(
+               query
+             )
+         )
         query = match.captures.first
       end
 
-      query.gsub!(%r#/\*[^!].*?\*/#m, "")
+      query.gsub!(%r{/\*[^!].*?\*/}m, "")
       query.gsub!(/(?:--|#)[^\r\n]*(?=[\r\n]|\Z)/, "")
 
       return query if query.gsub!(/\Ause \S+\Z/i, "use ?")
@@ -193,17 +196,21 @@ module Prosopite
 
       query.gsub!(/\bnull\b/i, "?")
 
-      query.gsub!(/\b(in|values?)(?:[\s,]*\([\s?,]*\))+/, "\\1(?+)")
+      query.gsub!(/\b(in|values?)(?:[\s,]*\([\s?,]*\))+/, '\\1(?+)')
 
-      query.gsub!(/(?<!\w)field\s*\(\s*(\S+)\s*,\s*(\?+)(?:\s*,\s*\?+)*\)/, 'field(\1, \2+)')
+      query.gsub!(
+        /(?<!\w)field\s*\(\s*(\S+)\s*,\s*(\?+)(?:\s*,\s*\?+)*\)/,
+        'field(\1, \2+)'
+      )
 
-      query.gsub!(/\b(select\s.*?)(?:(\sunion(?:\sall)?)\s\1)+/, "\\1 /*repeat\\2*/")
+      query.gsub!(
+        /\b(select\s.*?)(?:(\sunion(?:\sall)?)\s\1)+/,
+        '\\1 /*repeat\\2*/'
+      )
 
       query.gsub!(/\blimit \?(?:, ?\?| offset \?)/, "limit ?")
 
-      if query =~ /\border by/
-        query.gsub!(/\G(.+?)\s+asc/, "\\1")
-      end
+      query.gsub!(/\G(.+?)\s+asc/, '\\1') if /\border by/.match?(query)
 
       query
     end
@@ -215,7 +222,7 @@ module Prosopite
       @prosopite_logger ||= false
       @raise ||= false
 
-      notifications_str = ''
+      notifications_str = ""
 
       tc[:prosopite_notifications].each do |queries, kaller|
         notifications_str << "N+1 queries detected:\n"
@@ -224,25 +231,23 @@ module Prosopite
 
         notifications_str << "Call stack:\n"
         kaller = backtrace_cleaner.clean(kaller)
-        kaller.each do |f|
-          notifications_str << "  #{f}\n"
-        end
+        kaller.each { |f| notifications_str << "  #{f}\n" }
 
         notifications_str << "\n"
       end
 
-      @custom_logger.warn(notifications_str) if @custom_logger
+      @custom_logger&.warn(notifications_str)
 
       Rails.logger.warn(red(notifications_str)) if @rails_logger
-      $stderr.puts(red(notifications_str)) if @stderr_logger
+      warn(red(notifications_str)) if @stderr_logger
 
       if @prosopite_logger
-        File.open(File.join(Rails.root, 'log', 'prosopite.log'), 'a') do |f|
+        File.open(File.join(Rails.root, "log", "prosopite.log"), "a") do |f|
           f.puts(notifications_str)
         end
       end
 
-      raise NPlusOneQueriesError.new(notifications_str) if @raise
+      raise NPlusOneQueriesError, notifications_str if @raise
     end
 
     def red(str)
@@ -258,19 +263,23 @@ module Prosopite
       @subscribed ||= false
       return if @subscribed
 
-      ActiveSupport::Notifications.subscribe 'sql.active_record' do |_, _, _, _, data|
-        sql, name = data[:sql], data[:name]
+      ActiveSupport::Notifications.subscribe "sql.active_record" do |_, _, _, _, data|
+        sql = data[:sql]
+        name = data[:name]
 
-        if scan? && name != "SCHEMA" && sql.include?('SELECT') && data[:cached].nil? && !ignore_query?(sql)
+        if scan? && name != "SCHEMA" && sql.include?("SELECT") &&
+             data[:cached].nil? && !ignore_query?(sql)
           query_caller = caller
           location_key = Digest::SHA256.hexdigest(query_caller.join)
 
           tc[:prosopite_query_counter][location_key] += 1
           tc[:prosopite_query_holder][location_key] << sql
 
-          if tc[:prosopite_query_counter][location_key] > 1
-            tc[:prosopite_query_caller][location_key] = query_caller.dup
-          end
+          tc[:prosopite_query_caller][location_key] = query_caller.dup if tc[
+            :prosopite_query_counter
+          ][
+            location_key
+          ] > 1
         end
       end
 

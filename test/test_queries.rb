@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'test_helper'
+require "test_helper"
 
 class TestQueries < Minitest::Test
   def setup
@@ -19,9 +19,7 @@ class TestQueries < Minitest::Test
     chairs.each { |c| create_list(:leg, 4, chair: c) }
 
     Prosopite.scan
-    Chair.last(20).each do |c|
-      c.legs.first
-    end
+    Chair.last(20).each { |c| c.legs.first }
 
     assert_n_plus_one
   end
@@ -32,9 +30,7 @@ class TestQueries < Minitest::Test
     chairs.each { |c| create_list(:leg, 4, chair: c) }
 
     Prosopite.scan
-    Chair.last(20).each do |c|
-      c.legs.last
-    end
+    Chair.last(20).each { |c| c.legs.last }
 
     assert_n_plus_one
   end
@@ -45,9 +41,7 @@ class TestQueries < Minitest::Test
     chairs.each { |c| create_list(:leg, 4, chair: c) }
 
     Prosopite.scan
-    Chair.last(20).each do |c|
-      c.legs.pluck(:id)
-    end
+    Chair.last(20).each { |c| c.legs.pluck(:id) }
 
     assert_n_plus_one
   end
@@ -58,9 +52,10 @@ class TestQueries < Minitest::Test
     chairs.each { |c| create_list(:leg, 4, chair: c) }
 
     Prosopite.scan
-    Chair.last(20).map{ |c| c.becomes(ArmChair) }.each do |ac|
-      ac.legs.map(&:id)
-    end
+    Chair
+      .last(20)
+      .map { |c| c.becomes(ArmChair) }
+      .each { |ac| ac.legs.map(&:id) }
 
     assert_n_plus_one
   end
@@ -69,9 +64,7 @@ class TestQueries < Minitest::Test
     create_list(:leg, 10)
 
     Prosopite.scan
-    Leg.last(10).each do |l|
-      l.chair
-    end
+    Leg.last(10).each(&:chair)
 
     assert_n_plus_one
   end
@@ -80,9 +73,7 @@ class TestQueries < Minitest::Test
     create_list(:chair, 10)
 
     Prosopite.scan
-    Chair.last(10).each do |c|
-      c.update(name: "#{c.name} + 1")
-    end
+    Chair.last(10).each { |c| c.update(name: "#{c.name} + 1") }
     Prosopite.finish
   end
 
@@ -104,10 +95,12 @@ class TestQueries < Minitest::Test
     Prosopite.scan
 
     preloader = ActiveRecord::Associations::Preloader.new
-    Chair.last(20).map do |chair|
-      preloader.preload(chair, :legs)
-      chair.legs
-    end
+    Chair
+      .last(20)
+      .map do |chair|
+        preloader.preload(chair, :legs)
+        chair.legs
+      end
 
     assert_n_plus_one
   end
@@ -118,11 +111,7 @@ class TestQueries < Minitest::Test
     chairs.each { |c| create_list(:leg, 4, chair: c) }
 
     assert_raises(Prosopite::NPlusOneQueriesError) do
-      Prosopite.scan do
-        Chair.last(20).each do |c|
-          c.legs.first
-        end
-      end
+      Prosopite.scan { Chair.last(20).each { |c| c.legs.first } }
     end
   end
 
@@ -133,11 +122,7 @@ class TestQueries < Minitest::Test
 
     assert_raises(Prosopite::NPlusOneQueriesError) do
       Prosopite.scan do
-        Prosopite.scan do
-          Chair.last(20).each do |c|
-            c.legs.first
-          end
-        end
+        Prosopite.scan { Chair.last(20).each { |c| c.legs.first } }
       end
     end
   end
@@ -146,14 +131,10 @@ class TestQueries < Minitest::Test
     # 20 chairs, 4 legs each
     chairs = create_list(:chair, 20)
     chairs.each { |c| create_list(:leg, 4, chair: c) }
-  
+
     Prosopite.enabled = false
 
-    Prosopite.scan do
-      Chair.last(20).each do |c|
-        c.legs.last
-      end
-    end
+    Prosopite.scan { Chair.last(20).each { |c| c.legs.last } }
 
     assert_no_n_plus_ones
   end
@@ -166,9 +147,7 @@ class TestQueries < Minitest::Test
     Prosopite.scan
 
     Prosopite.pause
-    Chair.last(20).each do |c|
-      c.legs.last
-    end
+    Chair.last(20).each { |c| c.legs.last }
 
     Prosopite.resume
 
@@ -184,9 +163,7 @@ class TestQueries < Minitest::Test
     Prosopite.scan
 
     Prosopite.pause
-    Chair.last(20).each do |c|
-      c.legs.last
-    end
+    Chair.last(20).each { |c| c.legs.last }
 
     Prosopite.resume
     Prosopite.ignore_pauses = false
@@ -204,9 +181,7 @@ class TestQueries < Minitest::Test
     Prosopite.pause
     Prosopite.resume
 
-    Chair.last(20).each do |c|
-      c.legs.last
-    end
+    Chair.last(20).each { |c| c.legs.last }
 
     assert_n_plus_one
   end
@@ -220,9 +195,7 @@ class TestQueries < Minitest::Test
 
     Prosopite.pause
 
-    Chair.last(20).each do |c|
-      c.legs.last
-    end
+    Chair.last(20).each { |c| c.legs.last }
 
     assert_no_n_plus_ones
   end
@@ -234,13 +207,12 @@ class TestQueries < Minitest::Test
 
     Prosopite.scan
 
-    result = Prosopite.pause do
-      Chair.last(20).each do |c|
-        c.legs.last
-      end
+    result =
+      Prosopite.pause do
+        Chair.last(20).each { |c| c.legs.last }
 
-      :some_result_here
-    end
+        :some_result_here
+      end
 
     assert_equal(:some_result_here, result)
 
@@ -258,17 +230,14 @@ class TestQueries < Minitest::Test
     Prosopite.scan
 
     inner_result = nil
-    outer_result = Prosopite.pause do
-      inner_result = Prosopite.pause do
-        :result
-      end
+    outer_result =
+      Prosopite.pause do
+        inner_result = Prosopite.pause { :result }
 
-      Chair.last(20).each do |c|
-        c.legs.last
-      end
+        Chair.last(20).each { |c| c.legs.last }
 
-      :outer_result
-    end
+        :outer_result
+      end
 
     assert_equal(:result, inner_result)
 
@@ -295,19 +264,15 @@ class TestQueries < Minitest::Test
   end
 
   def test_scan_with_block_raising_error
-    begin
-      Prosopite.scan do
-        raise ArgumentError # raise sample error
-      end
-    rescue ArgumentError
-      assert_equal(false, Prosopite.scan?)
+    Prosopite.scan do
+      raise ArgumentError # raise sample error
     end
+  rescue ArgumentError
+    assert_equal(false, Prosopite.scan?)
   end
 
   def test_scan_with_block_returns_result
-    actual_result = Prosopite.scan do
-      :result_of_block
-    end
+    actual_result = Prosopite.scan { :result_of_block }
 
     assert_equal(:result_of_block, actual_result)
   end
@@ -320,9 +285,7 @@ class TestQueries < Minitest::Test
     Prosopite.allow_stack_paths = ["test/test_queries.rb"]
 
     Prosopite.scan
-    Chair.last(20).each do |c|
-      c.legs.first
-    end
+    Chair.last(20).each { |c| c.legs.first }
 
     assert_no_n_plus_ones
   end
@@ -333,12 +296,12 @@ class TestQueries < Minitest::Test
     chairs.each { |c| create_list(:leg, 4, chair: c) }
 
     # ...prosopite/test/test_queries.rb:195:in `block in test_allow_stack_paths_with_regex'
-    Prosopite.allow_stack_paths = [/test_queries.*test_allow_stack_paths_with_regex/]
+    Prosopite.allow_stack_paths = [
+      /test_queries.*test_allow_stack_paths_with_regex/
+    ]
 
     Prosopite.scan
-    Chair.last(20).each do |c|
-      c.legs.first
-    end
+    Chair.last(20).each { |c| c.legs.first }
 
     assert_no_n_plus_ones
   end
@@ -351,9 +314,7 @@ class TestQueries < Minitest::Test
     Prosopite.allow_stack_paths = ["some_random_path.rb"]
 
     Prosopite.scan
-    Chair.last(20).each do |c|
-      c.legs.first
-    end
+    Chair.last(20).each { |c| c.legs.first }
 
     assert_n_plus_one
   end
@@ -366,9 +327,7 @@ class TestQueries < Minitest::Test
     Prosopite.ignore_queries = [/legs/]
 
     Prosopite.scan
-    Chair.last(20).each do |c|
-      c.legs.last
-    end
+    Chair.last(20).each { |c| c.legs.last }
 
     assert_no_n_plus_ones
   end
@@ -378,12 +337,12 @@ class TestQueries < Minitest::Test
     chairs = create_list(:chair, 20)
     chairs.each { |c| create_list(:leg, 4, chair: c) }
 
-    Prosopite.ignore_queries = [%(SELECT "legs".* FROM "legs" WHERE "legs"."chair_id" = ? ORDER BY "legs"."id" DESC LIMIT ?)]
+    Prosopite.ignore_queries = [
+      %(SELECT "legs".* FROM "legs" WHERE "legs"."chair_id" = ? ORDER BY "legs"."id" DESC LIMIT ?)
+    ]
 
     Prosopite.scan
-    Chair.last(20).each do |c|
-      c.legs.last
-    end
+    Chair.last(20).each { |c| c.legs.last }
 
     assert_no_n_plus_ones
   end
@@ -396,9 +355,7 @@ class TestQueries < Minitest::Test
     Prosopite.ignore_queries = [/arms/]
 
     Prosopite.scan
-    Chair.last(20).each do |c|
-      c.legs.last
-    end
+    Chair.last(20).each { |c| c.legs.last }
 
     assert_n_plus_one
   end
@@ -408,12 +365,12 @@ class TestQueries < Minitest::Test
     chairs = create_list(:chair, 20)
     chairs.each { |c| create_list(:leg, 4, chair: c) }
 
-    Prosopite.ignore_queries = [%(SELECT "chairs".* FROM "chairs" ORDER BY "chairs"."id" DESC LIMIT ?)]
+    Prosopite.ignore_queries = [
+      %(SELECT "chairs".* FROM "chairs" ORDER BY "chairs"."id" DESC LIMIT ?)
+    ]
 
     Prosopite.scan
-    Chair.last(20).each do |c|
-      c.legs.last
-    end
+    Chair.last(20).each { |c| c.legs.last }
 
     assert_n_plus_one
   end
@@ -425,9 +382,7 @@ class TestQueries < Minitest::Test
     Prosopite.min_n_queries = 5
 
     Prosopite.scan
-    Chair.last(4).each do |c|
-      c.legs.last
-    end
+    Chair.last(4).each { |c| c.legs.last }
 
     assert_no_n_plus_ones
   ensure
@@ -435,10 +390,9 @@ class TestQueries < Minitest::Test
   end
 
   private
+
   def assert_n_plus_one
-    assert_raises(Prosopite::NPlusOneQueriesError) do
-      Prosopite.finish
-    end
+    assert_raises(Prosopite::NPlusOneQueriesError) { Prosopite.finish }
   end
 
   def assert_no_n_plus_ones

@@ -5,9 +5,13 @@ require "factory_bot"
 require "active_record"
 require "rails"
 
-require 'minitest/reporters'
-color = ENV['CI'] == 'true' || Minitest::Reporters::ANSI::Code.color?
-Minitest::Reporters.use! [Minitest::Reporters::DefaultReporter.new(color: color)]
+require "minitest/reporters"
+color = ENV["CI"] == "true" || Minitest::Reporters::ANSI::Code.color?
+Minitest::Reporters.use! [
+                           Minitest::Reporters::DefaultReporter.new(
+                             color: color
+                           )
+                         ]
 
 require "prosopite"
 
@@ -33,7 +37,7 @@ end
 
 class Chair < ActiveRecord::Base
   has_many :legs
-  has_many :feet, class_name: 'Leg'
+  has_many :feet, class_name: "Leg"
 
   validates_uniqueness_of :name
 end

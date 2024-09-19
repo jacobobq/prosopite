@@ -4,9 +4,11 @@ source "https://rubygems.org"
 
 gemspec
 
+gem "pg_query"
 gem "rake", "~> 13.0"
-gem 'pg_query'
 
 group :development do
-    gem 'rubocop', require: false
+  gem "rubocop", require: false
+  gem "rubocop-performance", require: false
+  gem "syntax_tree", require: false
 end
