@@ -18,13 +18,7 @@ module Prosopite
                 :backtrace_cleaner,
                 :enabled
 
-    attr_accessor :allow_stack_paths, :ignore_queries, :min_n_queries
-
-    def allow_list=(value)
-      puts "Prosopite.allow_list= is deprecated. Use Prosopite.allow_stack_paths= instead."
-
-      self.allow_stack_paths = value
-    end
+    attr_accessor :ignore_queries, :min_n_queries
 
     def backtrace_cleaner
       @backtrace_cleaner ||= Rails.backtrace_cleaner
@@ -40,6 +34,14 @@ module Prosopite
       !enabled?
     end
 
+    def allow_stack_paths
+      tc[:allow_stack_paths] || []
+    end
+
+    def allow_stack_paths=(paths)
+      tc[:allow_stack_paths] = paths
+    end
+
     def scan
       tc[:prosopite_scan] ||= false
       return block_given? ? yield : nil if scan? || disabled?
@@ -50,7 +52,6 @@ module Prosopite
       tc[:prosopite_query_holder] = Hash.new { |h, k| h[k] = [] }
       tc[:prosopite_query_caller] = {}
 
-      @allow_stack_paths ||= []
       @ignore_pauses ||= false
       @min_n_queries ||= 2
 
@@ -130,18 +131,27 @@ module Prosopite
 
         next unless queries.any?
 
-        kaller = tc[:prosopite_query_caller][location_key]
-        allow_list = (@allow_stack_paths + DEFAULT_ALLOW_LIST)
-        is_allowed = kaller.any? { |f| allow_list.any? { |s| f.match?(s) } }
+        location = tc[:prosopite_query_caller][location_key]
+        allow_list = (allow_stack_paths + DEFAULT_ALLOW_LIST)
+        is_allowed = location.any? { |f| allow_list.any? { |s| f.match?(s) } }
 
         queries.each do |q|
-          tc[:prosopite_notifications][q] = kaller
+          tc[:prosopite_notifications][q] = location
         end unless is_allowed
       end
     end
 
     def fingerprint(query)
       case ActiveRecord::Base.connection
+      when ActiveRecord::ConnectionAdapters::SQLite3Adapter
+        begin
+          require "sql_fingerprint"
+        rescue LoadError => e
+          msg =
+            "Could not load the 'sql_fingerprint' gem. Add `gem 'sql_fingerprint'` to your Gemfile"
+          raise LoadError, msg, e.backtrace
+        end
+        SqlFingerprint.calculate(query)
       when ActiveRecord::ConnectionAdapters::AbstractMysqlAdapter
         mysql_fingerprint(query)
       else
@@ -206,22 +216,22 @@ module Prosopite
     end
 
     def send_notifications
-      @custom_logger ||= false
+      @custom_logger ||= nil
       @rails_logger ||= false
       @stderr_logger ||= false
       @prosopite_logger ||= false
       @raise ||= false
 
-      notifications_str = ""
+      notifications_str = +""
 
-      tc[:prosopite_notifications].each do |queries, kaller|
+      tc[:prosopite_notifications].each do |queries, location|
         notifications_str << "N+1 queries detected:\n"
 
         queries.each { |q| notifications_str << "  #{q}\n" }
 
         notifications_str << "Call stack:\n"
-        kaller = backtrace_cleaner.clean(kaller)
-        kaller.each { |f| notifications_str << "  #{f}\n" }
+        location = backtrace_cleaner.clean(location)
+        location.each { |f| notifications_str << "  #{f}\n" }
 
         notifications_str << "\n"
       end

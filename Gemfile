@@ -6,9 +6,10 @@ gemspec
 
 gem "pg_query"
 gem "rake", "~> 13.0"
+gem "sql_fingerprint"
 
 group :development do
-  gem "rubocop", require: false
-  gem "rubocop-performance", require: false
-  gem "syntax_tree", require: false
+  gem "rubocop"
+  gem "rubocop-performance"
+  gem "syntax_tree"
 end
